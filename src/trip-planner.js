@@ -116,6 +116,8 @@ updateVehicleNotes();
 
 let routeLayer = null;
 let stopLayer = null;
+let tripRouteMap = null;
+let tripRouteLayers = null;
 let lastPlan = null;
 
 function kmBetween(a, b) {
@@ -340,8 +342,39 @@ function renderResult(plan) {
   itinerary += '<article class="trip-leg trip-destination"><div class="trip-leg-no">FIN</div><div><b>' + esc(plan.end.label.split(",").slice(0, 2).join(",")) + '</b><small>DESTINATION · ' + routeKm + ' KM ESTIMATED ROAD DISTANCE</small></div><span class="trip-leg-tag">ARRIVE</span></article>';
   result.innerHTML = '<div class="trip-results-top"><div><span>TRIP ANALYSIS / ' + esc(plan.vehicle.label.toUpperCase()) + '</span><h3>' + (plan.stops.complete ? "YOUR ROUTE.<br>YOUR CHARGE PLAN." : "ROUTE NEEDS<br>ANOTHER OPTION.") + '</h3><p>From ' + esc(plan.start.label.split(",").slice(0, 2).join(",")) + ' to ' + esc(plan.end.label.split(",").slice(0, 2).join(",")) + '</p></div><a href="https://www.google.com/maps/dir/?api=1&origin=' + plan.start.lat + ',' + plan.start.lon + '&destination=' + plan.end.lat + ',' + plan.end.lon + '&travelmode=driving" target="_blank" rel="noreferrer">OPEN FULL ROUTE IN MAPS ↗</a></div>' +
     '<div class="trip-stats">' + statsHtml + '</div>' + statusHtml +
-    '<div class="trip-results-grid"><div class="trip-itinerary">' + itinerary + '</div><aside class="trip-model-card"><span>VEHICLE RANGE MODEL</span><b>' + Math.round(plan.vehicle.idc || plan.customRange) + ' km</b><small>Manufacturer IDC figure</small><hr><div><span>Range factor</span><b>' + plan.factor + '%</b></div><div><span>Estimated full-charge range</span><b>' + Math.round(plan.planningRange) + ' km</b></div><div><span>Starting battery</span><b>' + plan.startSoc + '%</b></div><div><span>Safety reserve</span><b>' + plan.reserve + '%</b></div><div><span>Target at each stop</span><b>' + plan.targetSoc + '%</b></div><p>' + esc(plan.vehicle.notes) + '</p><small>Estimate only. Adjust the range factor to reflect your own vehicle, riding style and conditions.</small></aside></div>' +
+    '<div class="trip-results-grid"><div class="trip-route-map" id="trip-route-map" aria-label="Calculated EV trip route map"></div><div class="trip-results-side"><div class="trip-itinerary">' + itinerary + '</div><aside class="trip-model-card"><span>VEHICLE RANGE MODEL</span><b>' + Math.round(plan.vehicle.idc || plan.customRange) + ' km</b><small>Manufacturer IDC figure</small><hr><div><span>Range factor</span><b>' + plan.factor + '%</b></div><div><span>Estimated full-charge range</span><b>' + Math.round(plan.planningRange) + ' km</b></div><div><span>Starting battery</span><b>' + plan.startSoc + '%</b></div><div><span>Safety reserve</span><b>' + plan.reserve + '%</b></div><div><span>Target at each stop</span><b>' + plan.targetSoc + '%</b></div><p>' + esc(plan.vehicle.notes) + '</p><small>Estimate only. Adjust the range factor to reflect your own vehicle, riding style and conditions.</small></aside></div></div>' +
     '<div class="trip-data-note">The route line is a general road-network estimate, not a scooter-specific legal route. The listed stops are OpenStreetMap charging-station records near the route (within 9 km straight-line corridor). No live status, price, opening time, socket access or vehicle compatibility has been confirmed.</div>';
+  drawTripRouteMap(plan);
+}
+function drawTripRouteMap(plan) {
+  const container = $("#trip-route-map", section);
+  if (!container) return;
+  if (tripRouteMap) {
+    tripRouteMap.remove();
+    tripRouteMap = null;
+  }
+  tripRouteMap = L.map(container, { zoomControl: true, scrollWheelZoom: false, preferCanvas: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(tripRouteMap);
+  tripRouteLayers = L.layerGroup().addTo(tripRouteMap);
+  L.geoJSON(plan.geometry, {
+    style: { color: "#138c86", weight: 5, opacity: .94, lineCap: "round", lineJoin: "round" }
+  }).addTo(tripRouteLayers);
+  L.circleMarker([plan.start.lat,plan.start.lon], {
+    radius: 8, color: "#fff", weight: 3, fillColor: "#f2a65a", fillOpacity: 1
+  }).addTo(tripRouteLayers).bindTooltip("TRIP START");
+  L.circleMarker([plan.end.lat,plan.end.lon], {
+    radius: 8, color: "#fff", weight: 3, fillColor: "#138c86", fillOpacity: 1
+  }).addTo(tripRouteLayers).bindTooltip("DESTINATION");
+  plan.stops.stops.forEach((entry,index) => {
+    L.circleMarker([entry.station.lat,entry.station.lon], {
+      radius: 8, color: "#fff", weight: 3, fillColor: "#f2a65a", fillOpacity: 1
+    }).addTo(tripRouteLayers).bindTooltip("CHARGING STOP " + (index + 1) + " · " + entry.station.name);
+  });
+  tripRouteMap.fitBounds(L.geoJSON(plan.geometry).getBounds(),{padding:[25,25],maxZoom:12});
+  setTimeout(() => tripRouteMap?.invalidateSize(),180);
 }
 function showBusy(message) {
   $("#trip-output", section).innerHTML = '<div class="trip-loading"><span class="trip-loader"></span><b>' + esc(message) + '</b><small>Checking public route and charging-station data…</small></div>';
