@@ -183,3 +183,5 @@ using (public.is_chargewise_admin());
 -- The service role is used only by the Edge Function and never shipped to the browser.
 grant insert, update on public.charging_stations to service_role;
 grant insert on public.station_sync_runs to service_role;
+
+grant update on public.station_reports to authenticated;
