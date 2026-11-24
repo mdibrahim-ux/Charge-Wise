@@ -46,10 +46,19 @@ const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([12
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
 const markers = L.layerGroup().addTo(map);
+const coverageLayer = L.layerGroup().addTo(map);
+let coverageEnabled = false;
 L.circle([12.895, 77.60], { radius: 2200, color: "#be655a", weight: 2, dashArray: "6 7", fillColor: "#df927e", fillOpacity: .09 }).addTo(map).bindTooltip("South RTO research reference · not a verified coverage gap");
 
 let stations = [], boundary = null, selectedStation = null, currentUser = null, currentProfile = null;
 const esc = (v) => String(v || "Not tagged").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+function haversine(lat1, lon1, lat2, lon2) {
+  const rad = (v) => v * Math.PI / 180;
+  const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function insideRing(point, ring) {
   let inside = false; const x = point[1], y = point[0];
   for (let i=0,j=ring.length-1;i<ring.length;j=i++) {
@@ -120,8 +129,6 @@ function showStation(s) {
     '<div class="detail-actions"><button class="mini-action" id="save-selected">SAVE STATION</button><button class="mini-action" id="report-selected">REPORT ISSUE</button></div>'+
     '<a href="'+s.url+'" target="_blank" rel="noreferrer">Open OSM record '+svg.external+'</a>'+
     '<a href="https://www.google.com/maps/search/?api=1&query='+s.lat+','+s.lon+'" target="_blank" rel="noreferrer">Directions '+svg.arrow+'</a>';
-  $("#save-selected")?.addEventListener("click", saveSelectedStation);
-  $("#report-selected")?.addEventListener("click", () => openReportDialog(s));
   $("#save-selected").addEventListener("click", saveSelectedStation);
   $("#report-selected").addEventListener("click", () => openReportDialog(s));
 }
