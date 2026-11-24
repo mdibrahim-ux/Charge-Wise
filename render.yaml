@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: chargewise-bengaluru
+    runtime: node
+    plan: 0.5c-512mb
+    region: singapore
+    rootDir: platform
+    buildCommand: node --check server.mjs && node --check public/app.js && node --check public/map.js && node --check public/platform.js && node --check public/boot.js
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DB_PATH
+        value: /var/data/chargewise.sqlite
+    disk:
+      name: chargewise-data
+      mountPath: /var/data
+      sizeGB: 1

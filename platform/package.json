@@ -1,0 +1,1 @@
+{"name":"chargewise-platform","version":"3.0.0","private":true,"type":"module","engines":{"node":">=24"},"scripts":{"start":"node server.mjs","test":"node --test tests/api.test.mjs"}}
