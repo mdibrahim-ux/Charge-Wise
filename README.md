@@ -1,76 +1,143 @@
 # ChargeWise
 
-A Bengaluru-focused EV charging intelligence explorer built with Vite, Leaflet and a Material You-inspired visual system.
+**Bengaluru EV infrastructure intelligence** — a bold dark neo-brutalist web application built with Vite, Leaflet and Supabase.
 
-## Features
+## What it does
 
-- Interactive Bengaluru map with public charging station features queried from OpenStreetMap via Overpass.
-- BBMP boundary lookup and location filtering, with a Bengaluru study-area bounding-box fallback.
-- Station details, operator filter, search, fast/DC-tag filter and map links.
-- Alternate Open Charge Map embedded map for an independent directory view.
-- CSTEP (2024) candidate-location chart across nine RTO zones.
-- A visible five-stage ChargeWise analysis pipeline and research/data provenance.
+### Public map intelligence
+- Queries public OpenStreetMap charging-station features for the Bengaluru study boundary.
+- Draws the BBMP boundary when the public Nominatim geometry lookup is available.
+- Shows station name, operator, connector, power, access and opening-hours tags where they exist.
+- Search and filter by operator and fast/DC tags.
+- Switch between the custom OpenStreetMap layer and the independent Open Charge Map viewer.
+- Station metadata-completeness indicator. This is **not** a charger uptime or reliability score.
 
-## Run locally
+### Unique tools
+- **Range Guard:** uses browser geolocation only after the user clicks. Compares estimated usable battery range with the nearest mapped station using straight-line distance, then links to driving directions. Road distance is longer and real availability is not checked.
+- **Gap Scan:** highlights map cells whose nearest mapped OSM station is more than 2.7 km away in a straight line. It reveals gaps in the *mapped dataset*, not confirmed charging demand or infrastructure shortage.
+- **Community Field Reports:** signed-in users can report closed stations, wrong coordinates, connector/power information, access issues, incorrect hours, or suggest a missing charger.
+- **Saved Chargers:** authenticated users can keep a personal list of locations.
+- **Admin review:** users with the admin profile role can review community reports and trigger station inventory synchronisation into the database.
 
-\`\`\`bash
+### Research layer
+- Reproduces CSTEP (2024) potential future charging-location counts by Bengaluru RTO zone.
+- These counts are candidate sites, not current installed/operational charging stations.
+
+## Stack
+
+- Vite + vanilla JavaScript
+- Leaflet + OpenStreetMap tiles / Overpass API
+- Supabase Auth (email magic link), Postgres, Row Level Security and Edge Functions
+- Vercel deployment
+
+## Run the public website locally
+
+~~~bash
 git clone https://github.com/mdibrahim-ux/Charge-Wise.git
 cd Charge-Wise
 npm install
 npm run dev
-\`\`\`
+~~~
 
-Open the local URL printed by Vite (usually http://localhost:5173).
+Open the local Vite URL, usually http://localhost:5173.
 
-## Production build
+## Build
 
-\`\`\`bash
+~~~bash
 npm run build
 npm run preview
-\`\`\`
+~~~
 
-## Data and research notes
+## Connect the ChargeWise backend
 
-### Current mapped stations
+The Supabase backend implementation is committed in the supabase directory. A separate **ChargeWise Supabase project** must be created and connected before auth, saved chargers, user reports and admin tools become persistent. The app detects when Supabase environment variables are absent and keeps public map browsing available.
 
-The custom map queries OpenStreetMap features tagged \`amenity=charging_station\` in the Bengaluru study-area bounding box, then attempts to filter the results to the BBMP polygon. The result count is dynamic and appears with the query timestamp. It is **not** a complete certified inventory: OSM is community-maintained and can omit, duplicate or contain outdated station entries.
+1. Create a new Supabase project for ChargeWise (do not reuse another application's database).
+2. Copy .env.example to .env.local and add the project URL and publishable key from Supabase Settings → API Keys:
 
-Use the **Open Charge Map** map switch as an independent directory view. PlugMap's Bengaluru directory reports 159 locations (including 122 working fast DC chargers) from an Open Charge Map snapshot dated 6 November 2026. That regional directory snapshot is a separate source and should not be added to the OSM count because its geographic coverage and inclusion rules differ.
+~~~env
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxx
+~~~
 
-### Research candidate locations
+3. Link the Supabase project and apply the database migration:
 
-The chart reproduces CSTEP's 2024 potential future charging-location counts by RTO zone. These are candidate locations for future planning, **not existing chargers**:
+~~~bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+~~~
 
-| RTO zone | Potential locations |
+4. Deploy the secured station-sync Edge Function:
+
+~~~bash
+npx supabase functions deploy sync-bengaluru-stations
+~~~
+
+5. In Supabase Authentication → URL Configuration, set the Site URL to your deployed website and add http://localhost:5173 as an allowed redirect URL. Add https://charge-wise-omega.vercel.app as well.
+6. In Supabase SQL Editor, promote the intended project owner account to admin after that user has signed in once:
+
+~~~sql
+update public.profiles
+set role = 'admin'
+where email = 'YOUR_OWNER_EMAIL';
+~~~
+
+7. Set the same two public Vite environment variables in Vercel Project → Settings → Environment Variables, then redeploy. Never add a Supabase secret/service-role key to your VITE_ variables.
+
+The Edge Function receives an authenticated user's JWT, checks the user's database role, and only then uses the server-side service-role key to sync public OSM features. The service-role key is never included in frontend code.
+
+## Database model and access controls
+
+The migration creates:
+- profiles — Auth-linked account profile and role (member or admin).
+- charging_stations — cached public charging inventory, indexed by source and external ID.
+- saved_stations — per-user saved locations.
+- station_reports — authenticated user reports with moderation state (pending, reviewing, accepted, rejected).
+- station_sync_runs — protected audit trail for admin station synchronisations.
+
+Row Level Security:
+- Public users can read the station inventory.
+- Users can read their own profile, saved stations and reports.
+- Users can insert their own reports, but cannot approve or edit moderation status.
+- Only admins can manage the inventory, moderate reports and read sync history.
+- Admin role promotion is intentionally not exposed in the browser; it is done through the trusted SQL editor.
+
+## Research and data provenance
+
+### Research candidate locations by Bengaluru RTO zone
+
+| RTO zone | Candidate locations |
 |---|---:|
-| Bengaluru Central | 82 |
-| Bengaluru South | 64 |
+| Central | 82 |
+| South | 64 |
 | KR Puram | 62 |
-| Bengaluru West | 56 |
+| West | 56 |
 | Jnanabharathi | 45 |
-| Bengaluru North | 40 |
-| Bengaluru East | 32 |
+| North | 40 |
+| East | 32 |
 | Yelahanka | 23 |
-| E-city | 7 |
+| E-City | 7 |
 | **Total** | **411** |
 
-CSTEP describes the citywide set as approximately 400 potential locations. It additionally discusses around 2,500 existing bus stops as possible sites for modification; those are not included in the table above.
+CSTEP describes the total as approximately 400 potential future charging locations. This is not an installed charger count.
 
-## Data sources
-
-- [OpenStreetMap](https://www.openstreetmap.org/) and [Overpass API](https://overpass-api.de/)
-- [Open Charge Map](https://www.openchargemap.org/develop/)
-- [PlugMap Bengaluru directory](https://plugmap.in/ev-charging-stations/bengaluru.html) — snapshot 6 Nov 2026
-- [CSTEP, Bengaluru 2030: EV charging demand and infrastructure (November 2024)](https://web.cstep.in/drupal/sites/default/files/2024-11/Bengaluru%202030_EV%20charging%20demand%20and%20infrastructure.pdf)
-- [Smart One Bengaluru historical BESCOM/Bengaluru list](https://www.smartoneblr.com/static_content/EVSations.jsp) — page states final as of Dec 2021; historical cross-check only
+### Sources
+- [OpenStreetMap](https://www.openstreetmap.org/) and [Overpass API](https://overpass-api.de/) — live map records.
+- [Open Charge Map](https://www.openchargemap.org/develop/) — separate independent directory/map viewer.
+- [PlugMap Bengaluru](https://plugmap.in/ev-charging-stations/bengaluru.html) — independent snapshot, not merged with the OSM count.
+- [CSTEP, Bengaluru 2030: EV Charging Demand and Infrastructure (2024)](https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf) — future candidate-location research.
+- [Smart One Bengaluru historical BESCOM listing](https://www.smartoneblr.com/static_content/EVSations.jsp) — page indicates a December 2021 list; historical cross-check only.
 
 ## Important limitations
 
-- The map is a public-data explorer, not a live charger-availability service.
-- Connector, power, access and opening-hour details display only where a provider has tagged them.
-- The South RTO marker is a research reference, not a verified spatial service-gap polygon.
-- Proposed priority weights shown in the methodology are starter assumptions, not a validated model.
+- OpenStreetMap is community-maintained and is not a complete or certified station inventory.
+- Data can be missing, duplicated or out of date. Connector, power, access and opening hours are shown only where tagged.
+- The map does not confirm real-time charger availability, pricing, uptime or compatibility with a specific vehicle.
+- The Range Guard uses straight-line distances and does not calculate actual road range or battery consumption.
+- The Gap Scan highlights distance from mapped records, not an empirically validated charging-demand gap.
+- The candidate-location chart is research evidence, not a ChargeWise model result. The proposed 40/35/25 scoring formula is a starting assumption that needs local validation.
 
 ## Attribution
 
-Map tiles and map features are © OpenStreetMap contributors. Open Charge Map data is provided by Open Charge Map and its contributors. CSTEP figures are reproduced with citation to the 2024 report.
+Map tiles and OSM feature data © OpenStreetMap contributors. Open Charge Map data is provided by Open Charge Map and its contributors. CSTEP figures are reproduced with attribution to the 2024 report.
