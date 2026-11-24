@@ -17,7 +17,7 @@ const svg = {
 const html = [
 '<div class="app-shell">',
 '<header class="topbar"><a class="brand" href="#top"><span class="brand-icon">', svg.bolt, '</span><span>chargewise<span class="period">.</span></span></a>',
-'<nav><a class="active" href="#map-section">Explore map</a><a href="#insights">City insights</a><a href="#method">Methodology</a><a href="#sources">Sources</a></nav><div class="city-chip"><i></i>Bengaluru, India</div><button id="account-button" class="account-button">SIGN IN ↗</button></header>',
+'<nav><a class="active" href="#map-section">Explore map</a><a href="#trip-planner">Trip planner</a><a href="#insights">City insights</a><a href="#method">Methodology</a><a href="#sources">Sources</a></nav><div class="city-chip"><i></i>Bengaluru, India</div><button id="account-button" class="account-button">SIGN IN ↗</button></header>',
 '<main id="top">',
 '<section class="hero"><div class="hero-copy"><div class="eyebrow">CITY CHARGING INTELLIGENCE</div><h1>Charge ahead.<br><em>See the city differently.</em></h1><p>Explore publicly mapped EV charging locations across Bengaluru, understand where stations are concentrated, and discover research-backed areas for future infrastructure.</p><div class="actions"><a class="btn primary" href="#map-section">Explore the map ',svg.arrow,'</a><a class="btn tonal" href="#insights">View city insights</a></div><div class="subnote"><i></i> Public map data loads when you open the explorer</div></div>',
 '<div class="hero-art"><div class="art-orbit"></div><div class="art-orbit small"></div><div class="art-line"></div><div class="art-node n1"></div><div class="art-node n2"></div><div class="art-node n3"></div><div class="art-node n4"></div><div class="art-copy"><small>ONE CITY</small><b>Many routes<br>to a cleaner drive.</b><span>12.9716° N&nbsp;&nbsp; 77.5946° E</span></div></div></section>',
@@ -111,6 +111,7 @@ function parseStation(el) {
     id:el.type+"/"+el.id,lat:Number(p.lat),lon:Number(p.lon),
     name:v("name","brand","operator")||"Unnamed charging station",
     operator:v("operator","brand","network")||"Not tagged",
+    tags:t,
     address:[v("addr:housenumber"),v("addr:street"),v("addr:suburb"),v("addr:city")].filter(Boolean).join(", "),
     power:power||"Not listed", connector:v("socket:type2","socket:ccs","socket:chademo","socket:type1")||"Not listed",
     access:v("access")||"Not specified", opening:v("opening_hours")||"Not listed",
@@ -159,6 +160,7 @@ async function load() {
     $("#feed-status").textContent="OpenStreetMap query completed · "+stations.length+" features";
     $("#operator-filter").innerHTML='<option value="all">All operators</option>'+[...networks].sort().map((x)=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     update();
+    window.dispatchEvent(new Event("chargewise:stations-updated"));
     if(coverageEnabled) drawCoverageScan();
     if(!stations.length) $("#station-detail").innerHTML="<b>No charging features returned by this query.</b><p>OSM coverage may be incomplete. Check the independent directories below.</p>";
   } catch(e) {
@@ -362,6 +364,14 @@ $("#range-check").addEventListener("click", () => {
     $("#range-result").innerHTML = "<b>LOCATION NOT AVAILABLE</b><small>Allow browser location access and try again.</small>";
   }, {enableHighAccuracy:true,timeout:12000,maximumAge:60000});
 });
+
+window.chargeWiseApp = {
+  get map() { return map; },
+  get stations() { return stations; },
+  notify,
+  haversine
+};
+import("./trip-planner.js").catch((error) => console.error("Could not load the trip planner:", error));
 
 if(supabase) supabase.auth.onAuthStateChange(() => { setTimeout(() => { void refreshAccount(); }, 0); });
 void (async () => { await getBoundary(); await load(); await refreshAccount(); })();
