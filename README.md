@@ -14,6 +14,13 @@
 
 ### Unique tools
 - **Range Guard:** uses browser geolocation only after the user clicks. Compares estimated usable battery range with the nearest mapped station using straight-line distance, then links to driving directions. Road distance is longer and real availability is not checked.
+- **EV Trip Planner:** accepts a starting point, destination, exact scooter profile, current state of charge, reserve and a user-adjustable range factor. It geocodes both places, requests a road route, searches OpenStreetMap charger features along the route corridor, estimates when a charge stop is needed, and draws the route and suggested stops on the Leaflet map. Stops show approximate arrival battery, charge target, detour and connector/network-data confidence.
+
+### Trip planner methodology
+- Included manufacturer IDC reference figures: Ather 450X (161 km) and 450 Apex (165 km); TVS iQube 3.5 kWh (145 km) and iQube ST 5.3 kWh (212 km); Chetak 3501/3502 (153 km), 3503 (151 km), 3001 (127 km); VIDA V2 Pro (165 km) and V2 Plus (143 km). Figures are manufacturer-published reference values and may differ by model year/variant. Each profile links to the manufacturer's specification/FAQ page.
+- The default planning range is 75% of the selected IDC figure. Riders can adjust this factor to reflect their own scooter, load, speed, gradients, road and weather conditions. The planner does not claim this factor is a certified real-world range.
+- The stop algorithm accounts for the current battery, a configurable reserve, a target charge level, distance along the routed line and an estimated station detour. It prefers candidates whose station/network text matches the selected brand but never labels a record as guaranteed-compatible.
+- Start/destination geocoding uses OpenStreetMap Nominatim; road routing uses the public OSRM demo service; route-corridor charger discovery uses the Overpass API. These are public community/demo services and may be rate-limited or temporarily unavailable.
 - **Gap Scan:** highlights map cells whose nearest mapped OSM station is more than 2.7 km away in a straight line. It reveals gaps in the *mapped dataset*, not confirmed charging demand or infrastructure shortage.
 - **Community Field Reports:** signed-in users can report closed stations, wrong coordinates, connector/power information, access issues, incorrect hours, or suggest a missing charger.
 - **Saved Chargers:** authenticated users can keep a personal list of locations.
@@ -135,6 +142,9 @@ CSTEP describes the total as approximately 400 potential future charging locatio
 - Data can be missing, duplicated or out of date. Connector, power, access and opening hours are shown only where tagged.
 - The map does not confirm real-time charger availability, pricing, uptime or compatibility with a specific vehicle.
 - The Range Guard uses straight-line distances and does not calculate actual road range or battery consumption.
+- The Trip Planner uses a general driving road profile rather than a scooter-specific legally verified route. It estimates battery consumption using a configurable fraction of IDC range, not a live vehicle telemetry model.
+- Public station datasets do not reliably expose vehicle-side connector compatibility, socket access, uptime, pricing or live availability. A brand/network text match is only a lead; verify each stop in the OEM app and with the operator before setting out.
+- The Trip Planner queries public Nominatim, OSRM and Overpass services. Availability, coverage and rate limits are outside ChargeWise control.
 - The Gap Scan highlights distance from mapped records, not an empirically validated charging-demand gap.
 - The candidate-location chart is research evidence, not a ChargeWise model result. The proposed 40/35/25 scoring formula is a starting assumption that needs local validation.
 
