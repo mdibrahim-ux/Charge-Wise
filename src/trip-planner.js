@@ -95,8 +95,8 @@ section.innerHTML = [
   '<div class="trip-sources"><span>MODEL DATA</span><a href="https://www.atherenergy.com/450/specifications" target="_blank" rel="noreferrer">ATHER ↗</a><a href="https://www.tvsmotor.com/electric-scooters/tvs-iqube" target="_blank" rel="noreferrer">TVS ↗</a><a href="https://www.chetak.com/faqs" target="_blank" rel="noreferrer">CHETAK ↗</a><a href="https://www.vidaworld.com/vida-v2-pro.html" target="_blank" rel="noreferrer">VIDA ↗</a></div>'
 ].join("");
 
-const mapLayout = document.querySelector(".map-layout");
-if (mapLayout) mapLayout.insertAdjacentElement("afterend", section);
+const mapSection = document.querySelector(".map-section");
+if (mapSection) mapSection.insertAdjacentElement("afterend", section);
 else document.querySelector("main")?.append(section);
 
 const vehicleSelect = $("#trip-vehicle", section);
