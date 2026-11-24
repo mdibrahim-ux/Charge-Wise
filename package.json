@@ -1,14 +1,18 @@
 {
   "name": "charge-wise",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "supabase:link": "supabase link",
+    "supabase:push": "supabase db push",
+    "supabase:functions": "supabase functions deploy sync-bengaluru-stations"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
