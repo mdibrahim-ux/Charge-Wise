@@ -7,9 +7,9 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "supabase:link": "supabase link",
-    "supabase:push": "supabase db push",
-    "supabase:functions": "supabase functions deploy sync-bengaluru-stations"
+    "supabase:link": "npx supabase link",
+    "supabase:push": "npx supabase db push",
+    "supabase:functions": "npx supabase functions deploy sync-bengaluru-stations"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
