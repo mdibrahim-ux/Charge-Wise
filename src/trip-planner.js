@@ -124,7 +124,11 @@ function kmBetween(a, b) {
   const t = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(t), Math.sqrt(1 - t));
 }
+let lastGeocodeAt = 0;
 async function geocode(place) {
+  const delay = Math.max(0, 1100 - (Date.now() - lastGeocodeAt));
+  if (delay) await wait(delay);
+  lastGeocodeAt = Date.now();
   const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=" + encodeURIComponent(place);
   const response = await fetch(url, { headers: { "Accept-Language": "en" } });
   if (!response.ok) throw new Error("Place search is temporarily unavailable (HTTP " + response.status + ").");
@@ -193,9 +197,15 @@ async function fetchRouteStations(coords, cumulative) {
       });
       if (!response.ok) throw new Error("Overpass HTTP " + response.status);
       const data = await response.json();
-      return (data.elements || []).map(parseStation).filter((station) =>
+      const routeStations = (data.elements || []).map(parseStation).filter((station) =>
         Number.isFinite(station.lat) && Number.isFinite(station.lon)
       );
+      const localStations = window.chargeWiseApp?.stations || [];
+      const merged = new Map();
+      routeStations.concat(localStations).forEach((station) => {
+        if (station && station.id && !merged.has(station.id)) merged.set(station.id, station);
+      });
+      return Array.from(merged.values());
     } catch (error) {
       console.info("Route station query failed at " + endpoint, error);
     }
@@ -257,7 +267,7 @@ function compatibility(station, vehicle) {
     station.name, station.operator, station.connector, raw.network, raw.brand, raw.operator
   ].join(" ").toLowerCase();
   const networkMatch = (vehicle.terms || []).some((term) => haystack.includes(term));
-  if (networkMatch) return { kind: "network", label: "OEM / network name match", rank: 3 };
+  if (networkMatch) return { kind: "network", label: "Brand / network text match · verify in OEM app", rank: 3 };
   if (station.connector && station.connector !== "Not listed") {
     return { kind: "verify", label: "Connector tagged · verify vehicle fit", rank: 2 };
   }
@@ -269,7 +279,7 @@ function getRouteCandidates(stations, coords, cumulative, vehicle) {
     if (seen.has(station.id)) return false;
     seen.add(station.id);
     const access = String(station.access || "").toLowerCase();
-    return access !== "private" && access !== "no" && access !== "customers";
+    return access !== "private" && access !== "no";
   }).map((station) => {
     const position = stationAlongRoute(station, coords, cumulative);
     const fit = compatibility(station, vehicle);
@@ -322,7 +332,7 @@ function renderResult(plan) {
   plan.stops.stops.forEach((entry, index) => {
     const station = entry.station;
     const maps = "https://www.google.com/maps/dir/?api=1&destination=" + station.lat + "," + station.lon;
-    itinerary += '<article class="trip-stop"><div class="trip-leg-no">' + String(index + 2).padStart(2, "0") + '</div><div class="trip-stop-main"><b>' + esc(station.name) + '</b><small>' + esc(station.operator) + ' · approx. ' + entry.alongKm.toFixed(1) + ' km from start</small><div class="trip-stop-meta"><span>ARRIVE ≈ ' + Math.round(entry.arrivalSoc) + '%</span><span>CHARGE TO ' + entry.chargeTo + '%</span><span>DETOUR ≈ ' + entry.offRouteKm.toFixed(1) + ' km</span></div><em class="trip-fit fit-' + entry.fit.kind + '">' + esc(entry.fit.label) + '</em><p>' + esc(plan.vehicle.notes) + '</p></div><a href="' + maps + '" target="_blank" rel="noreferrer">NAVIGATE ↗</a></article>';
+    itinerary += '<article class="trip-stop"><div class="trip-leg-no">' + String(index + 2).padStart(2, "0") + '</div><div class="trip-stop-main"><b>' + esc(station.name) + '</b><small>' + esc(station.operator) + ' · approx. ' + entry.alongKm.toFixed(1) + ' km from start · access: ' + esc(station.access || "unknown") + '</small><div class="trip-stop-meta"><span>ARRIVE ≈ ' + Math.round(entry.arrivalSoc) + '%</span><span>CHARGE TO ' + entry.chargeTo + '%</span><span>DETOUR ≈ ' + entry.offRouteKm.toFixed(1) + ' km</span></div><em class="trip-fit fit-' + entry.fit.kind + '">' + esc(entry.fit.label) + '</em><p>' + esc(plan.vehicle.notes) + '</p></div><a href="' + maps + '" target="_blank" rel="noreferrer">NAVIGATE ↗</a></article>';
   });
   if (!plan.stops.complete) {
     itinerary += '<div class="trip-gap-warning"><b>CHARGING GAP / CHECK REQUIRED</b><span>There is no mapped stop within the estimated remaining range at this point. Do not attempt this leg without a verified charging alternative.</span></div>';
