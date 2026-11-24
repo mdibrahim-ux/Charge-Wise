@@ -176,7 +176,7 @@ $("#map-ocm").addEventListener("click",()=>{ $("#map").classList.add("hidden"); 
 $("#refresh").addEventListener("click",async()=>{ $("#refresh").classList.add("spinning"); await load(); $("#refresh").classList.remove("spinning"); });
 
 function completenessScore(s) {
-  const checks = [s.name !== "Unnamed charging location", s.operator !== "Not tagged",
+  const checks = [s.name !== "Unnamed charging station", s.operator !== "Not tagged",
     Boolean(s.address), s.power !== "Not listed", s.connector !== "Not listed",
     s.access !== "Not specified", s.opening !== "Not listed"];
   return Math.round(checks.filter(Boolean).length / checks.length * 100);
@@ -363,5 +363,5 @@ $("#range-check").addEventListener("click", () => {
   }, {enableHighAccuracy:true,timeout:12000,maximumAge:60000});
 });
 
-if(supabase) supabase.auth.onAuthStateChange(() => { void refreshAccount(); });
+if(supabase) supabase.auth.onAuthStateChange(() => { setTimeout(() => { void refreshAccount(); }, 0); });
 void (async () => { await getBoundary(); await load(); await refreshAccount(); })();
