@@ -179,3 +179,7 @@ using (public.is_chargewise_admin());
 -- Intentionally no anon insert policy for reports and no client-side role update policy.
 -- Promote the project owner to admin only from the trusted Supabase SQL editor:
 -- update public.profiles set role = 'admin' where email = 'your-owner-email@example.com';
+
+-- The service role is used only by the Edge Function and never shipped to the browser.
+grant insert, update on public.charging_stations to service_role;
+grant insert on public.station_sync_runs to service_role;
