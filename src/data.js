@@ -32,9 +32,15 @@ export const sources = [
     url: "https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf"
   },
   {
+    name: "Open Charge Map",
+    category: "Independent interactive map",
+    description: "Second map layer embedded from the Open Charge Map public viewer. Its records are independent from OpenStreetMap and use their own listing and status metadata.",
+    url: "https://map.openchargemap.io/?mode=embedded&latitude=12.9716&longitude=77.5946"
+  },
+  {
     name: "PlugMap Bengaluru",
     category: "Independent directory",
-    description: "A separate directory snapshot. Its totals differ from OSM because sources, scope and verification rules differ; used for cross-checking, not merged into the map count.",
+    description: "PlugMap lists 159 public stations around Bengaluru, including 122 working fast DC chargers, from its Open Charge Map snapshot dated 6 Nov 2026. This is a separate regional snapshot, not the OSM/BBMP map count.",
     url: "https://plugmap.in/ev-charging-stations/bengaluru.html"
   },
   {
