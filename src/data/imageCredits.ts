@@ -1,0 +1,10 @@
+/** Real photographs from Wikimedia Commons, used under their stated licences (resized/cropped). */
+export type ImageCredit = { file: string; subject: string; title: string; author: string; license: string; licenseUrl: string; sourceUrl: string }
+export const IMAGE_CREDITS: ImageCredit[] = [
+  { file: '/images/photo-bengaluru-orr.jpg', subject: 'Hero · Outer Ring Road, Bengaluru', title: 'Outer Ring Road from Bangalore Central (7988561197).jpg', author: 'Ashwin Kumar from Bangalore, India', license: 'CC BY-SA 2.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/2.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Outer_Ring_Road_from_Bangalore_Central_(7988561197).jpg' },
+  { file: '/images/photo-ather-grid-charger.jpg', subject: 'Ather Grid fast charger, Bengaluru', title: 'Green Vehicle Expo 2025 (Bangalore International Exhibition Centre) 115.jpg', author: 'Gpkp', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Green_Vehicle_Expo_2025_(Bangalore_International_Exhibition_Centre)_115.jpg' },
+  { file: '/images/ev-ola-s1-pro.jpg', subject: 'Ola S1 Pro', title: 'OLA S1 Pro Gen 1 Electric Scooter.jpg', author: 'SnapMeUp', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:OLA_S1_Pro_Gen_1_Electric_Scooter.jpg' },
+  { file: '/images/ev-tvs-iqube.jpg', subject: 'TVS iQube', title: 'Tvs i qube.jpg', author: 'Maneesh Sreekariyam', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Tvs_i_qube.jpg' },
+  { file: '/images/ev-bajaj-chetak.jpg', subject: 'Bajaj Chetak', title: 'Bajaj Chetak electric scooters (2026) 01.jpg', author: 'Gpkp', license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0', sourceUrl: 'https://commons.wikimedia.org/wiki/File:Bajaj_Chetak_electric_scooters_(2026)_01.jpg' },
+]
+export const creditFor = (file: string | null) => IMAGE_CREDITS.find((c) => c.file === file)

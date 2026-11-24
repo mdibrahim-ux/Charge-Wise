@@ -1,0 +1,11 @@
+import { Menu, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, navigate, type RouteName } from '../lib/router'
+import { Logo } from './Logo'
+import { Button, cx } from './ui'
+const LINKS: { to: RouteName; label: string }[] = [{ to: 'plan', label: 'Trip Planner' }, { to: 'vehicles', label: 'Vehicles' }, { to: 'analytics', label: 'Analytics' }]
+export function Nav({ route }: { route: RouteName }) {
+ const [open,setOpen]=useState(false)
+ useEffect(()=>setOpen(false),[route])
+ return <header className="sticky top-0 z-40 border-b-2 border-black bg-ink-900"><div className="mx-auto flex h-16 max-w-[1440px] items-center gap-8 px-5 md:px-8"><Link to="home" className="shrink-0"><Logo/></Link><nav className="hidden items-center gap-1 md:flex" aria-label="Main">{LINKS.map(l=><Link key={l.to} to={l.to} className={cx('relative rounded-full border-2 px-3.5 py-1.5 text-[13.5px] font-bold transition-all',(route===l.to||(l.to==='plan'&&route==='trip'))?'border-black bg-black text-white':'border-transparent text-black hover:border-black hover:bg-white')}>{l.label}</Link>)}</nav><div className="ml-auto flex items-center gap-2"><Button size="sm" className="hidden sm:inline-flex" onClick={()=>navigate('plan')}>Plan Your Journey</Button><button className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-black bg-white text-black shadow-[2px_2px_0_0_#111] md:hidden" onClick={()=>setOpen(o=>!o)} aria-label={open?'Close menu':'Open menu'} aria-expanded={open}>{open?<X size={18}/>:<Menu size={18}/>}</button></div></div>{open&&<div className="animate-fade-in border-t-2 border-black bg-ink-900 px-5 pt-3 pb-6 md:hidden">{[{to:'home' as RouteName,label:'Home'},...LINKS].map(l=><Link key={l.to} to={l.to} className={cx('flex items-center justify-between border-b-2 border-black/15 py-3.5 text-[15px] font-bold',(route===l.to||(l.to==='plan'&&route==='trip'))?'text-black underline decoration-cyan decoration-4 underline-offset-4':'text-black')}>{l.label}</Link>)}<Button className="mt-5 w-full" onClick={()=>navigate('plan')}>Plan Your Journey</Button></div>}</header>
+}

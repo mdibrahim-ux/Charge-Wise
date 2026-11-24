@@ -1,0 +1,5 @@
+{
+  "description": "Plan electric scooter journeys with battery-aware routes, charging stop recommendations, vehicle comparisons, and trip energy insights for more confident EV travel.",
+  "robots": {"index": false},
+  "accessibility": {"addBypassLinks": false, "ignoreReducedMotion": false}
+}
