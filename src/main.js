@@ -96,7 +96,7 @@ function parseStation(el) {
   const t=el.tags||{}, p=el.center||el;
   const v=(...keys)=>{for(const k of keys) if(t[k]) return t[k]; return "";};
   const power=v("capacity","socket:output","charging_station:output","maxpower","max power");
-  const match=String(power).match(/[0-9]+(?:\\.[0-9]+)?/), watts=match?Number(match[0]):0;
+  const match=String(power).match(/[0-9]+(?:\.[0-9]+)?/), watts=match?Number(match[0]):0;
   return {
     id:el.type+"/"+el.id,lat:Number(p.lat),lon:Number(p.lon),
     name:v("name","brand","operator")||"Unnamed charging station",
@@ -156,5 +156,4 @@ $("#search").addEventListener("input",update);
 $("#operator-filter").addEventListener("change",update);
 $("#charger-filter").addEventListener("change",update);
 $("#refresh").addEventListener("click",async()=>{ $("#refresh").classList.add("spinning"); await load(); $("#refresh").classList.remove("spinning"); });
-await getBoundary();
-await load();
+void (async () => { await getBoundary(); await load(); })();
