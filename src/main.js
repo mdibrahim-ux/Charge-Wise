@@ -2,7 +2,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
 import { bengaluruBounds, cstepZones, sources } from "./data.js";
-import { supabase, backendConfigured, getCurrentUser, sendMagicLink, saveStation, listSavedStations, listMyReports, submitStationReport, listAdminReports, reviewReport, syncStationInventory } from "./backend.js";
 
 const $ = (s) => document.querySelector(s);
 const svg = {
@@ -14,25 +13,8 @@ const svg = {
   refresh: '<svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3"/></svg>'
 };
 
-const html = [
-'<div class="app-shell">',
-'<header class="topbar"><a class="brand" href="#top"><span class="brand-icon">', svg.bolt, '</span><span>chargewise<span class="period">.</span></span></a>',
-'<nav><a class="active" href="#map-section">Explore map</a><a href="#trip-planner">Trip planner</a><a href="#insights">City insights</a><a href="#method">Methodology</a><a href="#sources">Sources</a></nav><div class="city-chip"><i></i>Bengaluru, India</div><button id="account-button" class="account-button">SIGN IN ↗</button></header>',
-'<main id="top">',
-'<section class="hero"><div class="hero-copy"><div class="eyebrow">CITY CHARGING INTELLIGENCE</div><h1>Charge ahead.<br><em>See the city differently.</em></h1><p>Explore publicly mapped EV charging locations across Bengaluru, understand where stations are concentrated, and discover research-backed areas for future infrastructure.</p><div class="actions"><a class="btn primary" href="#map-section">Explore the map ',svg.arrow,'</a><a class="btn tonal" href="#insights">View city insights</a></div><div class="subnote"><i></i> Public map data loads when you open the explorer</div></div>',
-'<div class="hero-art"><div class="art-orbit"></div><div class="art-orbit small"></div><div class="art-line"></div><div class="art-node n1"></div><div class="art-node n2"></div><div class="art-node n3"></div><div class="art-node n4"></div><div class="art-copy"><small>ONE CITY</small><b>Many routes<br>to a cleaner drive.</b><span>12.9716° N&nbsp;&nbsp; 77.5946° E</span></div></div></section>',
-'<section class="metrics"><article class="metric featured"><small>Mapped charging locations</small><strong id="station-count">—</strong><span id="station-meta">Loading OpenStreetMap data…</span></article><article class="metric"><small>Tagged networks</small><strong id="network-count">—</strong><span>Operator or brand tags found</span></article><article class="metric"><small>Fast / DC tagged</small><strong id="fast-count">—</strong><span>Where connector or power tags allow classification</span></article><article class="metric research-metric"><small>Research zones</small><strong>9</strong><span>Bengaluru RTO zones in the CSTEP study</span></article></section>',
-'<section class="section-head" id="map-section"><div><div class="eyebrow">INTERACTIVE CITY MAP</div><h2>Every pin has a story.</h2><p>Public charging stations currently mapped in OpenStreetMap within the Bengaluru study boundary.</p></div><div class="feed-status"><i></i><span id="feed-status">Connecting to public map data…</span></div></section>',
-'<section class="map-layout"><div class="map-card"><div class="map-toolbar"><div class="map-title"><span>',svg.pin,'</span><div><b>Charging station explorer</b><small id="map-caption">Bengaluru city study area</small></div></div><label class="search">',svg.search,'<input id="search" type="search" placeholder="Search station, operator or area…"></label><select id="operator-filter"><option value="all">All operators</option></select><select id="charger-filter"><option value="all">All types</option><option value="fast">Fast / DC tagged</option><option value="other">Other / unspecified</option></select><button id="coverage-toggle" class="coverage-toggle" type="button">GAP SCAN</button><div class="map-switch"><button id="map-osm" class="active" type="button">OSM</button><button id="map-ocm" type="button">Open Charge Map</button></div><button id="refresh" class="refresh" aria-label="Refresh map">',svg.refresh,'</button></div><div id="map"></div><iframe id="ocm-frame" title="Open Charge Map Bengaluru charging locations" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" src="https://map.openchargemap.io/?mode=embedded&latitude=12.9716&longitude=77.5946"></iframe><div class="legend"><span><i class="teal-dot"></i> OSM charging location</span><span><i class="coral-dot"></i> South RTO research reference</span><small>© OpenStreetMap contributors</small></div></div>',
-'<aside class="map-aside"><div class="detail-card"><div class="card-label">STATION INFORMATION <span>SELECT A PIN</span></div><div id="station-detail" class="empty"><b>Choose a charging location</b><p>Available name, operator, connector, power and access tags will appear here.</p></div></div><div class="research-card"><div class="card-label">RESEARCH SPOTLIGHT <span>CSTEP · 2024</span></div><strong>64 <small>candidate locations</small></strong><h3>South RTO zone</h3><p>CSTEP identified 64 potential charging locations in the South RTO zone. This is a future planning estimate, not a count of installed chargers or a verified coverage gap.</p><a href="https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf" target="_blank" rel="noreferrer">Read the CSTEP study ',svg.external,'</a></div></aside></section>',
-'<section class="range-guard" id="range-guard"><div class="range-intro"><span class="section-no">02 / RANGE GUARD</span><h2>WILL YOU<br>MAKE THE<br>NEXT CHARGE?</h2><p>Estimate usable battery range and locate the nearest mapped station. Location is requested only after you press the button.</p></div><div class="range-panel"><div class="range-panel-head"><b>TRIP PARAMETERS</b><span>RANGE ESTIMATOR / BETA</span></div><div class="range-inputs"><label>VEHICLE RANGE / KM<input id="vehicle-range" type="number" min="20" max="600" value="120"></label><label>BATTERY / %<input id="battery-level" type="number" min="1" max="100" value="55"></label><label>SAFETY RESERVE / %<input id="reserve-level" type="number" min="5" max="50" value="20"></label></div><button class="brutal-button" id="range-check">LOCATE ME & CHECK RANGE ↗</button><div id="range-result" class="range-result"><b>READY WHEN YOU ARE.</b><small>Straight-line distance is a lower bound. Road distance will be longer.</small></div></div></section><section class="community" id="community"><div><span class="section-no">03 / COMMUNITY INTELLIGENCE</span><h2>YOU KNOW<br>THE STREETS.</h2><p>Flag a closed charger, incorrect connector, access issue or suggest a missing public location.</p><button id="community-report" class="brutal-button">SUBMIT A FIELD REPORT ↗</button></div><div class="community-board"><div class="board-head"><b>YOUR CONTRIBUTIONS</b><span id="community-state">BACKEND / CHECKING</span></div><div id="my-reports"><p>Sign in to track your reports.</p></div><div class="board-head saved-head"><b>YOUR SAVED CHARGERS</b><span>PERSONAL LIST</span></div><div id="saved-list"><p>Sign in to save charging locations.</p></div></div></section><section class="admin-panel" id="admin-panel" hidden><div class="admin-head"><span class="section-no">ADMIN CONSOLE</span><h2>FIELD OPS.</h2><button id="sync-stations" class="brutal-button lime-button">SYNC OSM INVENTORY ↻</button></div><div id="admin-reports"></div></section><section class="insights" id="insights"><div class="section-head"><div><div class="eyebrow">RESEARCH LAYER · 2024</div><h2>Where could the next charger go?</h2><p>Potential future public-charging locations assessed by CSTEP across nine RTO zones.</p></div></div><div class="insight-grid"><div class="chart-card"><div class="chart-title"><b>Candidate locations by RTO zone</b><small>Research-identified potential sites, not existing stations</small></div><div id="zone-chart"></div><small class="chart-note">The report identifies approximately 400 potential locations citywide. Counts below are separate from the live station map.</small></div><div class="insight-copy"><small>01 / THE PLANNING QUESTION</small><h3>A map tells us where chargers are. <em>Research helps us ask where they are needed.</em></h3><p>ChargeWise keeps current mapped locations separate from demand estimates and proposed candidate zones, so evidence is not confused with prediction.</p><a class="btn dark" href="https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf" target="_blank" rel="noreferrer">Explore the report ',svg.arrow,'</a></div></div></section>',
-'<section class="method" id="method"><div class="eyebrow">THE CHARGEWISE PIPELINE</div><h2>From open data to <em>better decisions.</em></h2><p>A transparent workflow designed for reproducible, city-level infrastructure analysis.</p><div class="pipeline">',
-'<div><b>01</b><strong>Collect</strong><small>Stations, EV registrations, population, POIs and road network.</small></div><i>→</i><div><b>02</b><strong>Clean</strong><small>Deduplicate records, validate coordinates and standardise tags.</small></div><i>→</i><div><b>03</b><strong>Analyse</strong><small>Distribution, proximity and potential coverage gaps.</small></div><i>→</i><div><b>04</b><strong>Prioritise</strong><small>Demand, coverage gap and site suitability.</small></div><i>→</i><div><b>05</b><strong>Visualise</strong><small>Maps, evidence and candidate zones with caveats.</small></div></div>',
-'<div class="formula"><span>PROPOSED PRIORITY SCORE</span><b>40% Demand</b><i>+</i><b>35% Coverage gap</b><i>+</i><b>25% Site suitability</b><small>Initial weights only. Sensitivity testing and local validation are required.</small></div></section>',
-'<section class="sources" id="sources"><div class="section-head"><div><div class="eyebrow">OPEN DATA, CLEAR PROVENANCE</div><h2>Know your sources.</h2><p>Different datasets have different coverage rules. We keep them separate instead of adding incompatible totals together.</p></div></div><div id="source-list" class="source-list"></div><div class="caveat"><b>Data quality matters.</b> OpenStreetMap is community maintained and may omit, duplicate or contain outdated station records. Mapped locations do not guarantee that a charger is working, publicly accessible or available now. Verify details with the operator before travel.</div></section>',
-'</main><dialog id="auth-dialog" class="brutal-dialog"><form id="auth-form"><div class="dialog-top"><b>CHARGEWISE ACCOUNT</b><button type="button" data-close="auth-dialog">×</button></div><h2>GET IN.<br>STAY CHARGED.</h2><p>Sign in by email magic link to save stations and submit field reports.</p><label>EMAIL ADDRESS<input id="auth-email" type="email" required placeholder="you@example.com"></label><button class="brutal-button" type="submit">SEND MAGIC LINK ↗</button><small id="auth-message">No password needed. Your sign-in link opens in this browser.</small></form></dialog><dialog id="report-dialog" class="brutal-dialog"><form id="report-form"><div class="dialog-top"><b>COMMUNITY FIELD REPORT</b><button type="button" data-close="report-dialog">×</button></div><h2>FLAG IT.<br>FIX THE MAP.</h2><label>REPORT TYPE<select id="report-type"><option value="station_closed">Station appears closed</option><option value="wrong_location">Incorrect location</option><option value="connector_incorrect">Connector information wrong</option><option value="power_incorrect">Power information wrong</option><option value="access_issue">Access issue</option><option value="hours_incorrect">Opening hours wrong</option><option value="suggest_new_station">Suggest a missing station</option><option value="other">Other</option></select></label><label>WHAT DID YOU FIND?<textarea id="report-description" minlength="12" maxlength="2000" required placeholder="Describe what needs to be checked…"></textarea></label><button class="brutal-button" type="submit">SUBMIT FOR REVIEW ↗</button><small id="report-message">Reports are private to you and authorised moderators until reviewed.</small></form></dialog><div id="toast" class="brutal-toast" role="status"></div><footer><a class="brand" href="#top"><span class="brand-icon">',svg.bolt,'</span><span>chargewise<span class="period">.</span></span></a><small>Built for clearer EV infrastructure decisions in Bengaluru.</small><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution</a></footer></div>'
-].join("");
-$("#app").innerHTML = html;
+const html = "<div class=\"app-shell\">\n  <header class=\"topbar\">\n    <a class=\"brand\" href=\"#top\" aria-label=\"ChargeWise home\"><span class=\"brand-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M13 2 4 14h7l-1 8 10-12h-7l1-8Z\"/></svg></span><span>chargewise<span class=\"period\">.</span></span></a>\n    <nav aria-label=\"Main navigation\"><a class=\"active\" href=\"#top\">Overview</a><a href=\"#map-section\">Charging map</a><a href=\"#trip-planner\">Trip planner</a><a href=\"#insights\">EV insights</a></nav>\n    <div class=\"header-actions\"><span class=\"city-chip\"><i></i>Bengaluru, India</span><a class=\"nav-cta\" href=\"#trip-planner\">Plan a trip <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a><button class=\"mobile-menu\" id=\"mobile-menu\" aria-label=\"Open navigation\">☰</button></div>\n  </header>\n  <main id=\"top\">\n    <section class=\"hero\">\n      <div class=\"hero-copy\"><span class=\"eyebrow-pill\">BENGALURU EV CHARGING, MADE SIMPLE</span><h1>A better way to<br><em>move electric.</em></h1><p>Find charging options, understand your range and plan every ride with confidence.</p><div class=\"hero-actions\"><a class=\"btn btn-primary\" href=\"#trip-planner\">Plan my journey <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a><a class=\"btn btn-secondary\" href=\"#map-section\">Explore charging map</a></div><div class=\"hero-assurance\"><span>✓</span> No account needed <i></i> Public station data <i></i> Range-aware planning</div></div>\n      <div class=\"hero-visual\"><div class=\"hero-map-shell\"><div id=\"hero-map\" aria-label=\"Preview map of EV charging locations around Bengaluru\"></div><div class=\"hero-map-label label-north\">INDIRANAGAR</div><div class=\"hero-map-label label-east\">WHITEFIELD</div><div class=\"hero-map-label label-south\">JAYANAGAR</div><div class=\"hero-map-tag\"><span></span> Public charging locations</div></div><div class=\"hero-map-caption\"><div class=\"caption-symbol\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/></svg></div><div><b>Your city, ready to charge</b><small>Explore mapped chargers around Bengaluru</small></div><a href=\"#map-section\">VIEW MAP <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a></div></div>\n    </section>\n    <section class=\"metrics\" aria-label=\"ChargeWise overview metrics\">\n      <article class=\"metric\"><span class=\"metric-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/></svg></span><div><small>Mapped charging locations</small><strong id=\"station-count\">—</strong><span id=\"station-meta\">Loading public map data…</span></div></article>\n      <article class=\"metric\"><span class=\"metric-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M13 2 4 14h7l-1 8 10-12h-7l1-8Z\"/></svg></span><div><small>Tagged networks</small><strong id=\"network-count\">—</strong><span>Operator or brand tags found</span></div></article>\n      <article class=\"metric\"><span class=\"metric-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 7v5h-5M4 17v-5h5\"/><path d=\"M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3\"/></svg></span><div><small>Fast / DC tagged</small><strong id=\"fast-count\">—</strong><span>Based on available public tags</span></div></article>\n      <article class=\"metric\"><span class=\"metric-icon research-icon\">◎</span><div><small>Research zones</small><strong>9</strong><span>Bengaluru RTO zones in the CSTEP study</span></div></article>\n    </section>\n    <section class=\"feature-section\"><div class=\"section-heading\"><span class=\"eyebrow\">BUILT FOR YOUR NEXT RIDE</span><h2>Everything you need before the ride.</h2><p>From finding a nearby plug to planning a long-distance journey.</p></div>\n      <div class=\"feature-grid\">\n        <a class=\"feature-card feature-map\" href=\"#map-section\"><span class=\"feature-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/></svg></span><h3>Explore the charging map</h3><p>Search by area, network, connector and charging type. Open a station to see what is known — and what still needs verifying.</p><b>DISCOVER STATIONS <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></b></a>\n        <a class=\"feature-card feature-trip\" href=\"#trip-planner\"><span class=\"feature-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></span><h3>Plan a smarter journey</h3><p>Choose your EV, enter your battery level and get a route with suggested charging breaks.</p><b>BUILD A TRIP PLAN <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></b></a>\n        <a class=\"feature-card feature-range\" href=\"#range-guard\"><span class=\"feature-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M13 2 4 14h7l-1 8 10-12h-7l1-8Z\"/></svg></span><h3>Know your range</h3><p>See a conservative estimate based on your vehicle profile, battery and riding conditions.</p><b>CHECK YOUR RANGE <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></b></a>\n      </div>\n    </section>\n    <section class=\"research-banner\"><div><span class=\"eyebrow\">BUILT ON OPEN DATA + LOCAL RESEARCH</span><h2>Better infrastructure starts with better information.</h2><p>Separate mapped stations from future candidate locations, with transparent sources.</p></div><a class=\"btn btn-secondary\" href=\"#insights\">Read the research <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a></section>\n    <section class=\"map-section\" id=\"map-section\">\n      <div class=\"section-heading map-section-heading\"><div><span class=\"eyebrow\">CHARGING NETWORK / BENGALURU</span><h2>Find your next charge.</h2><p>Explore public charging locations and compare station information across the city.</p></div><div class=\"feed-status\"><i></i><span id=\"feed-status\">Connecting to public map data…</span></div></div>\n      <div class=\"map-filterbar\">\n        <label class=\"map-search\"><svg viewBox=\"0 0 24 24\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-4-4\"/></svg><span class=\"sr-only\">Search stations</span><input id=\"search\" type=\"search\" placeholder=\"Search area, station, operator or landmark…\"></label>\n        <button class=\"filter-chip active\" type=\"button\" data-filter=\"all\">All stations</button><button class=\"filter-chip\" type=\"button\" data-filter=\"fast\">Fast DC</button><button class=\"filter-chip\" type=\"button\" data-filter=\"ac\">AC charging</button><button class=\"filter-chip\" type=\"button\" data-filter=\"other\">Other / unspecified</button>\n        <select id=\"operator-filter\" aria-label=\"Filter by network\"><option value=\"all\">All networks</option></select>\n        <select id=\"charger-filter\" aria-label=\"Filter by charger type\" class=\"sr-only-select\"><option value=\"all\">All types</option><option value=\"fast\">Fast DC</option><option value=\"ac\">AC charging</option><option value=\"other\">Other / unspecified</option></select>\n      </div>\n      <div class=\"map-layout\">\n        <div class=\"map-main-column\"><div class=\"map-card\">\n          <div class=\"map-toolbar\"><div class=\"map-title\"><span class=\"map-title-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/></svg></span><div><b>Charging station explorer</b><small id=\"map-caption\">Bengaluru city study area</small></div></div>\n            <div class=\"map-toolbar-actions\"><button id=\"coverage-toggle\" class=\"utility-button\" type=\"button\">Coverage scan</button><div class=\"map-switch\"><button id=\"map-osm\" class=\"active\" type=\"button\">OpenStreetMap</button><button id=\"map-ocm\" type=\"button\">Open Charge Map</button></div><button id=\"refresh\" class=\"icon-button\" aria-label=\"Refresh map\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 7v5h-5M4 17v-5h5\"/><path d=\"M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3\"/></svg></button></div>\n          </div>\n          <div id=\"map\" aria-label=\"Interactive charging station map of Bengaluru\"></div>\n          <iframe id=\"ocm-frame\" title=\"Open Charge Map Bengaluru charging locations\" loading=\"lazy\" referrerpolicy=\"strict-origin-when-cross-origin\" src=\"https://map.openchargemap.io/?mode=embedded&latitude=12.9716&longitude=77.5946\"></iframe>\n          <div class=\"legend\"><span><i class=\"teal-dot\"></i> Public charging</span><span><i class=\"amber-dot\"></i> Fast / DC tagged</span><span><i class=\"outline-dot\"></i> Research reference</span><small>© OpenStreetMap contributors</small></div>\n        </div><div class=\"map-footnote\">Public map records can be incomplete or out of date. A map pin does not confirm current uptime, price, access or compatibility.</div></div>\n        <aside class=\"map-aside\">\n          <section class=\"station-list-card\"><div class=\"panel-heading\"><div><span class=\"eyebrow\">EXPLORE THE NETWORK</span><h3>Nearby stations</h3></div><span class=\"result-count\" id=\"result-count\">— listings</span></div><div id=\"station-results\" class=\"station-results\"><div class=\"station-empty\">Loading mapped stations…</div></div></section>\n          <section class=\"station-detail-card\"><div class=\"panel-heading\"><div><span class=\"eyebrow\">STATION DETAILS</span><h3>Station information</h3></div></div><div id=\"station-detail\" class=\"empty\"><b>Choose a charging location</b><p>Available name, operator, connector, power and access details appear here.</p></div></section>\n          <section class=\"research-card\"><span class=\"eyebrow\">RESEARCH SPOTLIGHT · CSTEP 2024</span><strong>64 <small>candidate locations</small></strong><h3>South RTO zone</h3><p>CSTEP identified 64 potential charging locations in the South RTO zone. This is a future planning estimate, not a count of installed chargers.</p><a href=\"https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf\" target=\"_blank\" rel=\"noreferrer\">Read the CSTEP study <svg viewBox=\"0 0 24 24\"><path d=\"M14 3h7v7m-1-6-9 9\"/><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/></svg></a></section>\n        </aside>\n      </div>\n    </section>\n    <section class=\"range-guard\" id=\"range-guard\"><div class=\"range-intro\"><span class=\"eyebrow\">QUICK RANGE CHECK</span><h2>Will you make<br>the next charge?</h2><p>Estimate usable battery range and locate the nearest mapped station. Your location is requested only when you press the button.</p></div><div class=\"range-panel\"><div class=\"range-panel-head\"><b>TRIP PARAMETERS</b><span>RANGE ESTIMATOR</span></div><div class=\"range-inputs\"><label>VEHICLE RANGE / KM<input id=\"vehicle-range\" type=\"number\" min=\"20\" max=\"600\" value=\"120\"></label><label>BATTERY / %<input id=\"battery-level\" type=\"number\" min=\"1\" max=\"100\" value=\"55\"></label><label>SAFETY RESERVE / %<input id=\"reserve-level\" type=\"number\" min=\"5\" max=\"50\" value=\"20\"></label></div><button class=\"btn btn-primary range-check-button\" id=\"range-check\">Locate me & check range <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button><div id=\"range-result\" class=\"range-result\"><b>Ready when you are.</b><small>Straight-line distance is a lower bound. Road distance will be longer.</small></div></div></section>\n    <section class=\"insights\" id=\"insights\"><div class=\"section-heading\"><div><span class=\"eyebrow\">RESEARCH LAYER · 2024</span><h2>Where could the next charger go?</h2><p>Potential future public-charging locations assessed by CSTEP across nine RTO zones.</p></div></div><div class=\"insight-grid\"><div class=\"chart-card\"><div class=\"chart-title\"><b>Candidate locations by RTO zone</b><small>Research-identified potential sites, not existing stations</small></div><div id=\"zone-chart\"></div><small class=\"chart-note\">The report identifies approximately 400 potential locations citywide. Counts below are separate from the live station map.</small></div><div class=\"insight-copy\"><span class=\"eyebrow\">01 / THE PLANNING QUESTION</span><h3>A map tells us where chargers are. <em>Research helps us ask where they are needed.</em></h3><p>ChargeWise keeps current mapped locations separate from demand estimates and proposed candidate zones, so evidence is not confused with prediction.</p><a class=\"btn btn-primary\" href=\"https://cstep.in/wp-content/uploads/2025/06/Bengaluru-2030_EV-charging-demand-and-infrastructure.pdf\" target=\"_blank\" rel=\"noreferrer\">Explore the report <svg viewBox=\"0 0 24 24\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a></div></div></section>\n    <section class=\"method-section\" id=\"method\"><span class=\"eyebrow\">THE CHARGEWISE PIPELINE</span><h2>From open data to <em>better decisions.</em></h2><p>A transparent workflow designed for reproducible, city-level infrastructure analysis.</p><div class=\"pipeline\"><div><b>01</b><strong>Collect</strong><small>Stations, EV registrations, population, POIs and road network.</small></div><i>→</i><div><b>02</b><strong>Clean</strong><small>Deduplicate records, validate coordinates and standardise tags.</small></div><i>→</i><div><b>03</b><strong>Analyse</strong><small>Distribution, proximity and potential coverage gaps.</small></div><i>→</i><div><b>04</b><strong>Prioritise</strong><small>Demand, coverage gap and site suitability.</small></div><i>→</i><div><b>05</b><strong>Visualise</strong><small>Maps, evidence and candidate zones with caveats.</small></div></div><div class=\"formula\"><span>PROPOSED PRIORITY SCORE</span><b>40% Demand</b><i>+</i><b>35% Coverage gap</b><i>+</i><b>25% Site suitability</b><small>Initial weights only. Sensitivity testing and local validation are required.</small></div></section>\n    <section class=\"sources-section\" id=\"sources\"><div class=\"section-heading\"><div><span class=\"eyebrow\">OPEN DATA, CLEAR PROVENANCE</span><h2>Know your sources.</h2><p>Different datasets have different coverage rules. We keep them separate instead of adding incompatible totals together.</p></div></div><div id=\"source-list\" class=\"source-list\"></div><div class=\"caveat\"><b>Data quality matters.</b> OpenStreetMap is community maintained and may omit, duplicate or contain outdated station records. Mapped locations do not guarantee that a charger is working, publicly accessible or available now. Verify details with the operator before travel.</div></section>\n  </main>\n  <footer><a class=\"brand\" href=\"#top\"><span class=\"brand-icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M13 2 4 14h7l-1 8 10-12h-7l1-8Z\"/></svg></span><span>chargewise<span class=\"period\">.</span></span></a><small>Charging intelligence for everyday electric journeys.</small><div><a href=\"#map-section\">Charging map</a><a href=\"#trip-planner\">Trip planner</a><a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap attribution</a></div></footer>\n  <div id=\"toast\" class=\"toast\" role=\"status\" aria-live=\"polite\"></div>\n</div>";
+$('#app').innerHTML = html;
 
 const maxZone = Math.max(...cstepZones.map((x) => x.count));
 $("#zone-chart").innerHTML = cstepZones.map((x) =>
@@ -43,6 +25,9 @@ $("#source-list").innerHTML = sources.map((x, i) =>
 ).join("");
 
 const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([12.9716, 77.5946], 11);
+const heroMap = L.map("hero-map", { zoomControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false }).setView([12.9716,77.5946],11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(heroMap);
+const heroMarkers = L.layerGroup().addTo(heroMap);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
 const markers = L.layerGroup().addTo(map);
@@ -50,7 +35,7 @@ const coverageLayer = L.layerGroup().addTo(map);
 let coverageEnabled = false;
 L.circle([12.895, 77.60], { radius: 2200, color: "#be655a", weight: 2, dashArray: "6 7", fillColor: "#df927e", fillOpacity: .09 }).addTo(map).bindTooltip("South RTO research reference · not a verified coverage gap");
 
-let stations = [], boundary = null, selectedStation = null, currentUser = null, currentProfile = null;
+let stations = [], boundary = null, selectedStation = null;
 const esc = (v) => String(v || "Not tagged").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 function haversine(lat1, lon1, lat2, lon2) {
   const rad = (v) => v * Math.PI / 180;
@@ -121,30 +106,46 @@ function parseStation(el) {
 }
 function showStation(s) {
   selectedStation = s;
-  $("#station-detail").className="station-content";
-  $("#station-detail").innerHTML='<h3>'+esc(s.name)+'</h3><small class="operator">'+esc(s.operator)+'</small><dl>'+
-    '<div><dt>Address</dt><dd>'+esc(s.address)+'</dd></div><div><dt>Power</dt><dd>'+esc(s.power)+'</dd></div>'+
-    '<div><dt>Connector</dt><dd>'+esc(s.connector)+'</dd></div><div><dt>Access</dt><dd>'+esc(s.access)+'</dd></div>'+
-    '<div><dt>Opening hours</dt><dd>'+esc(s.opening)+'</dd></div></dl>'+
-    '<div class="metadata-meter"><div><span>TAG COMPLETENESS</span><b>'+completenessScore(s)+'%</b></div><i><span style="width:'+completenessScore(s)+'%"></span></i><small>Metadata completeness only. Not an uptime or reliability rating.</small></div>'+
-    '<div class="detail-actions"><button class="mini-action" id="save-selected">SAVE STATION</button><button class="mini-action" id="report-selected">REPORT ISSUE</button></div>'+
-    '<a href="'+s.url+'" target="_blank" rel="noreferrer">Open OSM record '+svg.external+'</a>'+
-    '<a href="https://www.google.com/maps/search/?api=1&query='+s.lat+','+s.lon+'" target="_blank" rel="noreferrer">Directions '+svg.arrow+'</a>';
-  $("#save-selected").addEventListener("click", saveSelectedStation);
-  $("#report-selected").addEventListener("click", () => openReportDialog(s));
+  $("#station-detail").className = "station-content";
+  $("#station-detail").innerHTML =
+    '<div class="selected-station-top"><span class="station-type-icon">'+svg.bolt+'</span><div><h4>'+esc(s.name)+'</h4><small>'+esc(s.operator)+'</small></div></div>' +
+    '<dl><div><dt>Address</dt><dd>'+esc(s.address)+'</dd></div><div><dt>Power</dt><dd>'+esc(s.power)+'</dd></div><div><dt>Connector</dt><dd>'+esc(s.connector)+'</dd></div><div><dt>Access</dt><dd>'+esc(s.access)+'</dd></div><div><dt>Opening hours</dt><dd>'+esc(s.opening)+'</dd></div></dl>' +
+    '<div class="metadata-meter"><div><span>TAG COMPLETENESS</span><b>'+completenessScore(s)+'%</b></div><i><span style="width:'+completenessScore(s)+'%"></span></i><small>Metadata completeness only. Not an uptime or reliability rating.</small></div>' +
+    '<div class="station-actions"><a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lon+'" target="_blank" rel="noreferrer">Get directions '+svg.arrow+'</a><a class="text-link" href="'+s.url+'" target="_blank" rel="noreferrer">Open OSM record '+svg.external+'</a></div>';
+}
+function stationMatchesKind(station, kind) {
+  if (kind === "fast") return station.fast;
+  if (kind === "ac") return /type.?2|type.?1|ac/i.test(String(station.connector)+" "+JSON.stringify(station.tags || {}));
+  if (kind === "other") return !station.fast && station.connector === "Not listed";
+  return true;
 }
 function update() {
   const term=$("#search").value.trim().toLowerCase(), op=$("#operator-filter").value, kind=$("#charger-filter").value;
   const list=stations.filter((s)=>{
     const hay=[s.name,s.operator,s.address].join(" ").toLowerCase();
-    return (!term||hay.includes(term))&&(op==="all"||op===s.operator)&&(kind==="all"||(kind==="fast"?s.fast:!s.fast));
+    return (!term||hay.includes(term))&&(op==="all"||op===s.operator)&&stationMatchesKind(s,kind);
   });
   markers.clearLayers();
   list.forEach((s)=>{
-    L.circleMarker([s.lat,s.lon],{radius:7,color:"#fffefa",weight:2,fillColor:s.fast?"#c28a3b":"#397a73",fillOpacity:.96})
+    L.circleMarker([s.lat,s.lon],{radius:selectedStation?.id===s.id?9:6,color:"#fff",weight:2,fillColor:s.fast?"#d68d40":"#138c86",fillOpacity:.96})
       .addTo(markers).bindTooltip(esc(s.name),{direction:"top"}).on("click",()=>showStation(s));
   });
+  const center=map.getCenter();
+  const nearest=[...list].sort((a,b)=>haversine(center.lat,center.lng,a.lat,a.lon)-haversine(center.lat,center.lng,b.lat,b.lon)).slice(0,8);
+  $("#result-count").textContent=list.length.toLocaleString("en-IN")+" listings";
+  $("#station-results").innerHTML=nearest.length?nearest.map((s)=>
+    '<button class="station-result '+(selectedStation?.id===s.id?"selected":"")+'" type="button" data-station="'+esc(s.id)+'"><span class="station-result-icon">'+svg.bolt+'</span><span class="station-result-copy"><b>'+esc(s.name)+'</b><small>'+esc(s.operator)+' · '+esc(s.power)+'</small><em>'+(s.fast?"Fast / DC tagged":"Public charging")+' · '+(s.connector==="Not listed"?"Connector not listed":esc(s.connector))+'</em></span><span class="station-result-arrow">↗</span></button>'
+  ).join(""):'<div class="station-empty">No stations match these filters. Try a wider search.</div>';
+  $("#station-results").querySelectorAll("[data-station]").forEach((button)=>{
+    button.addEventListener("click",()=>{
+      const station=list.find((entry)=>entry.id===button.dataset.station);
+      if(!station)return;
+      showStation(station); map.setView([station.lat,station.lon],15,{animate:true}); update();
+    });
+  });
   $("#map-caption").textContent=list.length.toLocaleString("en-IN")+" of "+stations.length.toLocaleString("en-IN")+" mapped locations";
+  heroMarkers.clearLayers();
+  list.slice(0,28).forEach((s)=>L.circleMarker([s.lat,s.lon],{radius:3,color:"#fff",weight:1,fillColor:"#138c86",fillOpacity:.9}).addTo(heroMarkers));
 }
 async function load() {
   $("#feed-status").textContent="Loading public OpenStreetMap features…"; $("#station-count").textContent="…";
@@ -162,17 +163,25 @@ async function load() {
     update();
     window.dispatchEvent(new Event("chargewise:stations-updated"));
     if(coverageEnabled) drawCoverageScan();
-    if(!stations.length) $("#station-detail").innerHTML="<b>No charging features returned by this query.</b><p>OSM coverage may be incomplete. Check the independent directories below.</p>";
+    if(!stations.length) { $("#station-results").innerHTML="<div class=\"station-empty\">No public stations returned. OSM coverage may be incomplete.</div>"; $("#station-detail").innerHTML="<b>No charging features returned.</b><p>Try an independent station directory below.</p>"; }
   } catch(e) {
     console.error(e); $("#station-count").textContent="—"; $("#network-count").textContent="—"; $("#fast-count").textContent="—";
     $("#station-meta").textContent="Map service unavailable. No sample locations have been fabricated.";
     $("#feed-status").textContent="Live station query unavailable";
-    $("#station-detail").innerHTML='<b>Could not load map records.</b><p>Overpass may be busy or rate-limited. Please refresh later or use an independent station directory.</p><a href="https://plugmap.in/ev-charging-stations/bengaluru.html" target="_blank" rel="noreferrer">Open PlugMap directory '+svg.external+'</a>';
+    $("#station-results").innerHTML="<div class=\"station-empty\">Map records are temporarily unavailable. Try refresh or use PlugMap.</div>"; $("#station-detail").innerHTML='<b>Could not load map records.</b><p>Overpass may be busy or rate-limited. Please refresh later.</p><a href="https://plugmap.in/ev-charging-stations/bengaluru.html" target="_blank" rel="noreferrer">Open PlugMap directory '+svg.external+'</a>';
   }
 }
 $("#search").addEventListener("input",update);
 $("#operator-filter").addEventListener("change",update);
-$("#charger-filter").addEventListener("change",update);
+$("#charger-filter").addEventListener("change",()=>{
+  document.querySelectorAll("[data-filter]").forEach((button)=>button.classList.toggle("active",button.dataset.filter===$("#charger-filter").value));
+  update();
+});
+document.querySelectorAll("[data-filter]").forEach((button)=>button.addEventListener("click",()=>{
+  $("#charger-filter").value=button.dataset.filter;
+  document.querySelectorAll("[data-filter]").forEach((item)=>item.classList.toggle("active",item===button));
+  update();
+}));
 $("#map-osm").addEventListener("click",()=>{ $("#map").classList.remove("hidden"); $("#ocm-frame").classList.remove("active"); $("#map-osm").classList.add("active"); $("#map-ocm").classList.remove("active"); map.invalidateSize(); });
 $("#map-ocm").addEventListener("click",()=>{ $("#map").classList.add("hidden"); $("#ocm-frame").classList.add("active"); $("#map-ocm").classList.add("active"); $("#map-osm").classList.remove("active"); });
 $("#refresh").addEventListener("click",async()=>{ $("#refresh").classList.add("spinning"); await load(); $("#refresh").classList.remove("spinning"); });
@@ -223,120 +232,6 @@ $("#coverage-toggle").addEventListener("click", () => {
   notify("Gap scan is based only on mapped OSM points and straight-line distance.");
 });
 
-function setAccountButton() {
-  $("#account-button").textContent = !backendConfigured ? "BACKEND NOT CONNECTED ↗" : (currentUser ? "ACCOUNT / SIGN OUT ↗" : "SIGN IN ↗");
-  $("#community-state").textContent = !backendConfigured ? "SUPABASE CONFIG NEEDED" : (currentUser ? "SIGNED IN / " + currentUser.email : "AUTH READY");
-}
-function renderSavedRows(rows) {
-  $("#saved-list").innerHTML = rows.length ? rows.map((row) =>
-    '<div class="saved-row"><span>'+esc(row.station_name)+'</span><a target="_blank" rel="noreferrer" href="https://www.google.com/maps/search/?api=1&query='+row.latitude+','+row.longitude+'">OPEN ↗</a></div>'
-  ).join("") : "<p>No saved chargers yet. Use SAVE STATION in the map details.</p>";
-}
-function renderMyReportRows(rows) {
-  $("#my-reports").innerHTML = rows.length ? rows.map((row) =>
-    '<div class="report-row"><span>'+esc(row.station_name)+'</span><b class="status-'+row.status+'">'+row.status.toUpperCase()+'</b><small>'+esc(row.report_type.replaceAll("_"," "))+'</small></div>'
-  ).join("") : "<p>No field reports submitted yet.</p>";
-}
-async function refreshAccount() {
-  if (!backendConfigured) { setAccountButton(); return; }
-  const state = await getCurrentUser();
-  currentUser = state.user; currentProfile = state.profile;
-  setAccountButton();
-  if (!currentUser) {
-    $("#saved-list").innerHTML = "<p>Sign in to save charging locations.</p>";
-    $("#my-reports").innerHTML = "<p>Sign in to submit and track reports.</p>";
-    $("#admin-panel").hidden = true;
-    return;
-  }
-  try {
-    const [saved, reports] = await Promise.all([listSavedStations(currentUser.id), listMyReports(currentUser.id)]);
-    renderSavedRows(saved); renderMyReportRows(reports);
-  } catch (error) { notify("Could not load account data: " + error.message, "error"); }
-  if (currentProfile?.role === "admin") {
-    $("#admin-panel").hidden = false;
-    await refreshAdminReports();
-  } else $("#admin-panel").hidden = true;
-}
-async function saveSelectedStation() {
-  if (!currentUser) { openDialog("auth-dialog"); notify("Sign in to save this charger."); return; }
-  try {
-    await saveStation(currentUser.id, selectedStation);
-    notify("Station saved to your personal list.", "success");
-    renderSavedRows(await listSavedStations(currentUser.id));
-  } catch (error) { notify(error.message, "error"); }
-}
-let reportTarget = null;
-function openReportDialog(station = null) {
-  reportTarget = station;
-  $("#report-type").value = station ? "wrong_location" : "suggest_new_station";
-  $("#report-description").value = "";
-  $("#report-message").textContent = station ? "Report an issue with " + station.name : "Describe a missing charging location or an on-ground issue.";
-  if (!currentUser) { openDialog("auth-dialog"); notify("Sign in before sending a field report."); return; }
-  openDialog("report-dialog");
-}
-$("#account-button").addEventListener("click", async () => {
-  if (!backendConfigured) { notify("Supabase project is not connected yet. Add the ChargeWise environment keys to .env.local.", "error"); return; }
-  if (currentUser) {
-    await supabase.auth.signOut();
-    currentUser = null; currentProfile = null;
-    await refreshAccount();
-    notify("Signed out.");
-  } else openDialog("auth-dialog");
-});
-$("#auth-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!backendConfigured) { $("#auth-message").textContent = "Backend not connected. Configure .env.local first."; return; }
-  $("#auth-message").textContent = "Sending sign-in link…";
-  try {
-    await sendMagicLink($("#auth-email").value.trim());
-    $("#auth-message").textContent = "Magic link sent. Check your inbox and open it in this browser.";
-  } catch (error) { $("#auth-message").textContent = error.message; }
-});
-$("#community-report").addEventListener("click", () => openReportDialog(null));
-$("#report-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!currentUser || !backendConfigured) { notify("Sign in with the connected backend to submit reports.", "error"); return; }
-  $("#report-message").textContent = "Submitting…";
-  try {
-    await submitStationReport(currentUser.id, {
-      type: $("#report-type").value,
-      name: reportTarget?.name || "Community suggested location",
-      sourceId: reportTarget?.id || null,
-      lat: reportTarget?.lat ?? null,
-      lon: reportTarget?.lon ?? null,
-      description: $("#report-description").value.trim()
-    });
-    $("#report-dialog").close();
-    notify("Report submitted for moderator review.", "success");
-    await refreshAccount();
-  } catch (error) { $("#report-message").textContent = error.message; }
-});
-async function refreshAdminReports() {
-  if (currentProfile?.role !== "admin") return;
-  try {
-    const rows = await listAdminReports();
-    $("#admin-reports").innerHTML = rows.map((row) =>
-      '<article class="admin-row"><div><b>'+esc(row.station_name)+'</b><p>'+esc(row.description)+'</p><small>'+row.status.toUpperCase()+'</small></div>'+
-      (row.status === "pending" || row.status === "reviewing" ? '<div><button data-review="'+row.id+'" data-state="accepted">ACCEPT</button><button data-review="'+row.id+'" data-state="rejected">REJECT</button></div>' : "")+
-      '</article>'
-    ).join("") || "<p>No community reports yet.</p>";
-    document.querySelectorAll("[data-review]").forEach((button) => button.addEventListener("click", async () => {
-      try { await reviewReport(button.dataset.review, button.dataset.state); notify("Report reviewed.", "success"); await refreshAdminReports(); }
-      catch (error) { notify(error.message, "error"); }
-    }));
-  } catch (error) { $("#admin-reports").textContent = "Admin data error: " + error.message; }
-}
-$("#sync-stations").addEventListener("click", async () => {
-  const button = $("#sync-stations");
-  button.disabled = true; button.textContent = "SYNCING…";
-  try {
-    const result = await syncStationInventory();
-    notify("Synced " + result.synced + " station features into ChargeWise.", "success");
-    await load();
-  } catch (error) { notify(error.message, "error"); }
-  finally { button.disabled = false; button.textContent = "SYNC OSM INVENTORY ↻"; }
-});
-
 // Range Guard requests location only after an explicit user action.
 $("#range-check").addEventListener("click", () => {
   if (!navigator.geolocation) { notify("Location is unavailable in this browser.", "error"); return; }
@@ -373,5 +268,6 @@ window.chargeWiseApp = {
 };
 import("./trip-planner.js").catch((error) => console.error("Could not load the trip planner:", error));
 
-if(supabase) supabase.auth.onAuthStateChange(() => { setTimeout(() => { void refreshAccount(); }, 0); });
-void (async () => { await getBoundary(); await load(); await refreshAccount(); })();
+void (async () => { await getBoundary(); await load(); setTimeout(()=>{map.invalidateSize();heroMap.invalidateSize();},250); })();
+$("#mobile-menu")?.addEventListener("click",()=>$(".topbar nav").classList.toggle("nav-open"));
+$(".topbar nav")?.querySelectorAll("a").forEach((link)=>link.addEventListener("click",()=>$(".topbar nav").classList.remove("nav-open")));
