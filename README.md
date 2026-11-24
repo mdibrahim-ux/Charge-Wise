@@ -1,6 +1,6 @@
 # ChargeWise
 
-**Bengaluru EV infrastructure intelligence** — a bold dark neo-brutalist web application built with Vite, Leaflet and Supabase.
+**Bengaluru EV mobility intelligence** — a clean, light travel-tech experience built with Vite, vanilla JavaScript and Leaflet. The public website is login-free.
 
 ## What it does
 
@@ -8,13 +8,16 @@
 - Queries public OpenStreetMap charging-station features for the Bengaluru study boundary.
 - Draws the BBMP boundary when the public Nominatim geometry lookup is available.
 - Shows station name, operator, connector, power, access and opening-hours tags where they exist.
-- Search and filter by operator and fast/DC tags.
+- Search and filter by area, network, fast/DC and connector tags.
+- Compare matching stations in a responsive list beside the map, with live map pins, station metadata and directions.
+- Switch between OpenStreetMap tiles and the independent Open Charge Map viewer.
 - Switch between the custom OpenStreetMap layer and the independent Open Charge Map viewer.
 - Station metadata-completeness indicator. This is **not** a charger uptime or reliability score.
 
 ### Unique tools
 - **Range Guard:** uses browser geolocation only after the user clicks. Compares estimated usable battery range with the nearest mapped station using straight-line distance, then links to driving directions. Road distance is longer and real availability is not checked.
-- **EV Trip Planner:** accepts a starting point, destination, exact scooter profile, current state of charge, reserve and a user-adjustable range factor. It geocodes both places, requests a road route, searches OpenStreetMap charger features along the route corridor, estimates when a charge stop is needed, and draws the route and suggested stops on the Leaflet map. Stops show approximate arrival battery, charge target, detour and connector/network-data confidence.
+- **EV Trip Planner:** accepts a starting point, destination, exact scooter profile, current state of charge, reserve and a user-adjustable range factor. It geocodes both places, requests a road route, searches OpenStreetMap charger features along the route corridor, estimates when a charge stop is needed, and renders the calculated route and suggested charging-stop pins in its own embedded map. Stops show approximate arrival battery, charge target, detour and connector/network-data confidence.
+- **No login or account required:** map browsing, range checks and trip planning are public. There are no sign-in dialogs, saved-account areas or account-only controls in the website UI.
 
 ### Trip planner methodology
 - Included manufacturer IDC reference figures: Ather 450X (161 km) and 450 Apex (165 km); TVS iQube 3.5 kWh (145 km) and iQube ST 5.3 kWh (212 km); Chetak 3501/3502 (153 km), 3503 (151 km), 3001 (127 km); VIDA V2 Pro (165 km) and V2 Plus (143 km). Figures are manufacturer-published reference values and may differ by model year/variant. Each profile links to the manufacturer's specification/FAQ page.
@@ -22,9 +25,6 @@
 - The stop algorithm accounts for the current battery, a configurable reserve, a target charge level, distance along the routed line and an estimated station detour. It prefers candidates whose station/network text matches the selected brand but never labels a record as guaranteed-compatible.
 - Start/destination geocoding uses OpenStreetMap Nominatim; road routing uses the public OSRM demo service; route-corridor charger discovery uses the Overpass API. These are public community/demo services and may be rate-limited or temporarily unavailable.
 - **Gap Scan:** highlights map cells whose nearest mapped OSM station is more than 2.7 km away in a straight line. It reveals gaps in the *mapped dataset*, not confirmed charging demand or infrastructure shortage.
-- **Community Field Reports:** signed-in users can report closed stations, wrong coordinates, connector/power information, access issues, incorrect hours, or suggest a missing charger.
-- **Saved Chargers:** authenticated users can keep a personal list of locations.
-- **Admin review:** users with the admin profile role can review community reports and trigger station inventory synchronisation into the database.
 
 ### Research layer
 - Reproduces CSTEP (2024) potential future charging-location counts by Bengaluru RTO zone.
@@ -34,7 +34,6 @@
 
 - Vite + vanilla JavaScript
 - Leaflet + OpenStreetMap tiles / Overpass API
-- Supabase Auth (email magic link), Postgres, Row Level Security and Edge Functions
 - Vercel deployment
 
 ## Run the public website locally
@@ -55,60 +54,11 @@ npm run build
 npm run preview
 ~~~
 
-## Connect the ChargeWise backend
+## Backend status
 
-The Supabase backend implementation is committed in the supabase directory. A separate **ChargeWise Supabase project** must be created and connected before auth, saved chargers, user reports and admin tools become persistent. The app detects when Supabase environment variables are absent and keeps public map browsing available.
+The public website currently operates without authentication or Supabase environment variables. The Supabase migration and secured station-sync Edge Function remain in the repository as optional backend groundwork, but the login, account, saved-station, community-report and admin interfaces are not part of the current frontend.
 
-1. Create a new Supabase project for ChargeWise (do not reuse another application's database).
-2. Copy .env.example to .env.local and add the project URL and publishable key from Supabase Settings → API Keys:
-
-~~~env
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxx
-~~~
-
-3. Link the Supabase project and apply the database migration:
-
-~~~bash
-npx supabase login
-npx supabase link --project-ref YOUR_PROJECT_REF
-npx supabase db push
-~~~
-
-4. Deploy the secured station-sync Edge Function:
-
-~~~bash
-npx supabase functions deploy sync-bengaluru-stations
-~~~
-
-5. In Supabase Authentication → URL Configuration, set the Site URL to your deployed website and add http://localhost:5173 as an allowed redirect URL. Add https://charge-wise-omega.vercel.app as well.
-6. In Supabase SQL Editor, promote the intended project owner account to admin after that user has signed in once:
-
-~~~sql
-update public.profiles
-set role = 'admin'
-where email = 'YOUR_OWNER_EMAIL';
-~~~
-
-7. Set the same two public Vite environment variables in Vercel Project → Settings → Environment Variables, then redeploy. Never add a Supabase secret/service-role key to your VITE_ variables.
-
-The Edge Function receives an authenticated user's JWT, checks the user's database role, and only then uses the server-side service-role key to sync public OSM features. The service-role key is never included in frontend code.
-
-## Database model and access controls
-
-The migration creates:
-- profiles — Auth-linked account profile and role (member or admin).
-- charging_stations — cached public charging inventory, indexed by source and external ID.
-- saved_stations — per-user saved locations.
-- station_reports — authenticated user reports with moderation state (pending, reviewing, accepted, rejected).
-- station_sync_runs — protected audit trail for admin station synchronisations.
-
-Row Level Security:
-- Public users can read the station inventory.
-- Users can read their own profile, saved stations and reports.
-- Users can insert their own reports, but cannot approve or edit moderation status.
-- Only admins can manage the inventory, moderate reports and read sync history.
-- Admin role promotion is intentionally not exposed in the browser; it is done through the trusted SQL editor.
+No backend project is needed to run the website locally. Public map browsing and the EV trip planner use OpenStreetMap, Overpass, Nominatim and OSRM services directly.
 
 ## Research and data provenance
 
@@ -145,6 +95,7 @@ CSTEP describes the total as approximately 400 potential future charging locatio
 - The Trip Planner uses a general driving road profile rather than a scooter-specific legally verified route. It estimates battery consumption using a configurable fraction of IDC range, not a live vehicle telemetry model.
 - Public station datasets do not reliably expose vehicle-side connector compatibility, socket access, uptime, pricing or live availability. A brand/network text match is only a lead; verify each stop in the OEM app and with the operator before setting out.
 - The Trip Planner queries public Nominatim, OSRM and Overpass services. Availability, coverage and rate limits are outside ChargeWise control.
+- The website is intentionally login-free. Personal saved lists, user-submitted reports and administrator tools are not exposed in the current public experience.
 - The Gap Scan highlights distance from mapped records, not an empirically validated charging-demand gap.
 - The candidate-location chart is research evidence, not a ChargeWise model result. The proposed 40/35/25 scoring formula is a starting assumption that needs local validation.
 
